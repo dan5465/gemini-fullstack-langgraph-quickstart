@@ -22,7 +22,14 @@ from agent.prompts import (
 from agent.utils import (
     get_research_topic,
 )
+from local_search import search_in_directory
 
+def local_research(state, config):
+    queries = state.get("search_query", [])
+    configurable = Configuration.from_runnable_config(config)
+    search_dir = getattr(configurable, "local_search_dir", None)
+    summaries = search_in_directory(search_dir, queries)
+    return {"local_research_result": summaries}
 dotenv_path = os.path.normpath(
     os.path.join(os.path.dirname(__file__), "..", "..", ".env")
 )
