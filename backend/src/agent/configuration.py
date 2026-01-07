@@ -1,60 +1,63 @@
 import os
-from pydantic import BaseModel, Field
 from typing import Any, Optional
 
+from pydantic import BaseModel, Field
 from langchain_core.runnables import RunnableConfig
 
 
 class Configuration(BaseModel):
-    """The configuration for the agent."""
+    """Configuration for the Groq-based research agent."""
+
 
     query_generator_model: str = Field(
-        default="gemini-2.0-flash",
-        metadata={
-            "description": "The name of the language model to use for the agent's query generation."
-        },
+        default="llama-3.3-70b-versatile",
+        description="Groq model used to generate research queries",
     )
 
     reflection_model: str = Field(
-        default="gemini-2.5-flash",
-        metadata={
-            "description": "The name of the language model to use for the agent's reflection."
-        },
+        default="llama-3.3-70b-versatile",
+        description="Groq model used to reflect on gathered information",
     )
 
     answer_model: str = Field(
-        default="gemini-2.5-pro",
-        metadata={
-            "description": "The name of the language model to use for the agent's answer."
-        },
+        default="llama-3.3-70b-versatile",
+        description="Groq model used to generate the final answer",
     )
 
     number_of_initial_queries: int = Field(
         default=3,
-        metadata={"description": "The number of initial search queries to generate."},
+        description="Number of initial reasoning steps or sub-questions",
     )
 
     max_research_loops: int = Field(
-        default=2,
-        metadata={"description": "The maximum number of research loops to perform."},
+        default=1,
+        description="Maximum number of reasoning loops (kept for compatibility)",
     )
 
     @classmethod
     def from_runnable_config(
         cls, config: Optional[RunnableConfig] = None
     ) -> "Configuration":
-        """Create a Configuration instance from a RunnableConfig."""
-        configurable = (
-            config["configurable"] if config and "configurable" in config else {}
-        )
+        """
+        Create Configuration from LangGraph RunnableConfig.
 
-        # Get raw values from environment or config
-        raw_values: dict[str, Any] = {
-            name: os.environ.get(name.upper(), configurable.get(name))
-            for name in cls.model_fields.keys()
-        }
+        Priority:
+        1. RunnableConfig.configurable
+        2. Environment variables
+        3. Defaults
+        """
+        configurable = {}
+        if config and isinstance(config, dict):
+            configurable = config.get("configurable", {})
 
-        # Filter out None values
-        values = {k: v for k, v in raw_values.items() if v is not None}
+        values: dict[str, Any] = {}
+
+        for field_name in cls.model_fields:
+            env_key = field_name.upper()
+            if field_name in configurable:
+                values[field_name] = configurable[field_name]
+            elif env_key in os.environ:
+                values[field_name] = os.environ[env_key]
 
         return cls(**values)
+
